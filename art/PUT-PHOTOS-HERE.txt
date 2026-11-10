@@ -1,0 +1,2 @@
+Put photos of your paintings in this folder, then point to them from js/content.js.
+Example: image: "art/low-tide.jpg"

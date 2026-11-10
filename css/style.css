@@ -1,0 +1,1230 @@
+﻿/* Colour system, from colour research (see the summary at the end of this block):
+   - 60%: a calm, cool, low-colour charcoal wall. A strongly coloured wall changes how a
+     painting's colours look (Albers' simultaneous contrast), so the wall stays near-neutral
+     and the paintings carry the colour. No pure black (Material dark-theme guidance).
+   - 30%: warm paper-white ink for text and soft lighter surfaces for depth.
+   - 10%: ONE warm coral accent, kept for actions (Enquire, Get in touch, Send). A single
+     isolated accent is what the eye finds first (von Restorff); warm against a cool base is
+     complementary contrast, the most eye-catching pairing in eye-tracking studies.
+   - Series colours share one lightness and colour strength in OKLCH and differ only in hue,
+     so no series shouts louder than another. None uses the coral, so they never look like buttons.
+   - Every text colour meets WCAG 2.2 AA: ink 15:1, ink-2 10:1, ink-3 7.5:1, coral 7:1. */
+:root {
+  color-scheme: dark;
+  --tint: #7fbef3; /* set per page in app.js: that room's colour, used only as a faint glow */
+  --dark: oklch(0.185 0.012 250);      /* the wall, #0f1318 */
+  --deep: oklch(0.15 0.01 250);        /* deeper shade for frames and scrims */
+  --wall: color-mix(in oklch, var(--tint) 7%, var(--dark));
+  --wall-2: oklch(0.225 0.013 250);    /* raised surface, #171c22 */
+  --wall-3: oklch(0.265 0.014 250);    /* higher surface, #20262c */
+  --ink: oklch(0.93 0.012 85);         /* warm paper white, never pure white */
+  --ink-2: oklch(0.80 0.014 85);
+  --ink-3: oklch(0.72 0.014 85);
+  --line: oklch(0.93 0.012 85 / .14);
+  --oxide: oklch(0.72 0.15 42);        /* THE accent: coral, for actions only, #f18154 */
+  --oxide-hi: oklch(0.80 0.12 52);     /* its hover */
+  --c: oklch(0.78 0.10 245); /* the current series' colour; each series sets its own */
+  --ochre: oklch(0.82 0.12 85);        /* gold, for small highlights like "Available" */
+  --sea: oklch(0.78 0.10 200);
+  --dusk: oklch(0.78 0.10 245);
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+  --dab: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 14' preserveAspectRatio='none'%3E%3Cpath d='M2 8C40 3 80 10 120 7s90-5 120-2 40 4 58 2l-2 4c-30 3-70-1-110 1S60 13 4 12z'/%3E%3C/svg%3E");
+  --serif: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --gutter: clamp(16px, 4vw, 48px);
+
+  /* Typography: big headings, small titles and labels, side notes, reading text */
+  --body: var(--serif);
+  --hand: "Cormorant Garamond", "Cormorant", Georgia, serif;
+  --note: "Cormorant Garamond", "Cormorant", Georgia, serif; /* small italic asides */
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  background: var(--wall);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--wall);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17px; /* Manrope is wider than the old serif */
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+body.locked { overflow: hidden; }
+
+h1, h2, p, ul, ol { margin: 0; padding: 0; }
+ul, ol { list-style: none; }
+h1, h2 { font-weight: 400; line-height: 1.1; text-wrap: balance; }
+p { text-wrap: pretty; }
+img { display: block; max-width: 100%; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+main:focus { outline: none; }
+
+:focus-visible { outline: 2px solid var(--oxide); outline-offset: 3px; border-radius: 2px; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+
+/* Moving between pages: the old page leaves quickly, the new one arrives from the direction of travel */
+::view-transition-old(root) { animation: vt-leave 140ms ease both; }
+::view-transition-new(root) { animation: vt-fade 280ms var(--ease-out) both; }
+html[data-nav="in"]::view-transition-new(root) { animation-name: vt-rise; }
+html[data-nav="out"]::view-transition-new(root) { animation-name: vt-settle; }
+@keyframes vt-leave { to { opacity: 0; } }
+@keyframes vt-fade { from { opacity: 0; } }
+@keyframes vt-rise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes vt-settle { from { opacity: 0; transform: translateY(-14px); } }
+
+/* Layers: the site, then the lamp, and the paint wipe over everything */
+#app { position: relative; z-index: 1; }
+.wipe { display: none; position: fixed; inset: 0; width: 100%; height: 100%; z-index: 60; pointer-events: none; }
+.flying { position: fixed; z-index: 45; object-fit: cover; transform-origin: top left; box-shadow: 0 24px 70px rgba(0, 0, 0, .6); }
+.room-lamp {
+  position: fixed; left: -32vmax; top: -32vmax; width: 64vmax; height: 64vmax; z-index: 30;
+  pointer-events: none; opacity: 0; transition: opacity 500ms ease;
+  background: radial-gradient(closest-side, rgba(255, 230, 190, .13), rgba(255, 220, 170, .05) 45%, transparent 72%);
+}
+.room-lamp.on { opacity: 1; }
+body[data-view="work"] .room-lamp { opacity: 0; } /* painting pages have their own lamp */
+
+/* Entrance */
+.entrance {
+  position: fixed; inset: 0; z-index: 20;
+  background: var(--deep);
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+  transition: opacity 420ms ease;
+}
+.entrance[hidden] { display: none; }
+.entrance.leaving { opacity: 0; pointer-events: none; }
+.enter-canvas {
+  position: absolute; inset: 0; opacity: 0;
+  transition: opacity 1400ms ease, transform 420ms var(--ease-in-out);
+}
+.entrance.lit .enter-canvas { opacity: 1; }
+.entrance.leaving .enter-canvas { transform: scale(1.08); }
+.entrance.leaving .enter-text { opacity: 0; transform: translateY(-10px); }
+.surface { display: block; width: 100%; height: 100%; touch-action: none; }
+.enter-canvas::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to top, oklch(0.15 0.01 250 / .82), oklch(0.15 0.01 250 / 0) 46%);
+}
+.enter-text {
+  position: relative; text-align: center; pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms var(--ease-out);
+  padding: 0 var(--gutter) calc(clamp(40px, 9vh, 88px) + env(safe-area-inset-bottom));
+}
+.enter-text h1 {
+  font-size: clamp(44px, 8vw, 104px); font-weight: 300; letter-spacing: -.02em;
+  font-variation-settings: "opsz" 72;
+}
+.enter-text p { color: var(--ink-2); font-style: italic; margin: 6px 0 26px; font-size: 20px; animation: rise 420ms 1050ms var(--ease-out) backwards; }
+.enter-text h1 { animation: write-on 1200ms 250ms var(--ease-in-out) backwards; } /* the name writes itself */
+.enter-btn { animation: rise 420ms 1180ms var(--ease-out) backwards; }
+@keyframes write-on { from { clip-path: inset(-25% 102% -25% -2%); } to { clip-path: inset(-25% -2% -25% -2%); } }
+.enter-btn {
+  pointer-events: auto;
+  appearance: none; background: var(--oxide); color: var(--dark);
+  border: 1px solid var(--oxide); border-radius: 999px;
+  font: inherit; padding: 11px 38px; min-height: 44px; cursor: pointer;
+  transition: transform 160ms var(--ease-out), background-color 160ms ease, color 160ms ease;
+}
+.enter-btn:active { transform: scale(.97); }
+
+/* Header and footer */
+.top {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+  padding: calc(18px + env(safe-area-inset-top)) var(--gutter) 14px;
+}
+.brand { font-size: 22px; text-decoration: none; letter-spacing: -.01em; }
+.top nav { display: flex; gap: clamp(14px, 3vw, 30px); font-size: 17px; }
+.top nav a { color: var(--ink-2); text-decoration: none; padding: 6px 0; }
+.top nav a { position: relative; transition: color 160ms ease; }
+.top nav a::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
+  background: var(--oxide); mask: var(--dab) center / 100% 100% no-repeat; -webkit-mask: var(--dab) center / 100% 100% no-repeat;
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 220ms var(--ease-out);
+}
+.top nav a[aria-current="page"] { color: var(--ink); }
+.top nav a[aria-current="page"]::after { transform: scaleX(1); }
+
+.foot {
+  display: flex; flex-wrap: wrap; gap: 6px 24px;
+  padding: 26px var(--gutter) calc(26px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  color: var(--ink-3); font-size: 15px;
+}
+.foot a { color: var(--ink-2); }
+.draft { font-style: italic; }
+body[data-view="work"] .foot { display: none; }
+
+body[data-view="series"] {
+  background: radial-gradient(70rem 34rem at 12% 0, color-mix(in oklch, var(--tint) 16%, transparent), transparent 70%), var(--wall);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .enter-btn:hover { background: var(--ink); border-color: var(--ink); color: var(--dark); }
+  .top nav a:hover { color: var(--ink); }
+  .top nav a:hover::after { transform: scaleX(1); }
+  .button:hover { background: var(--ink); border-color: var(--ink); color: var(--dark); }
+  .tool:hover { color: var(--ink); border-color: var(--c); }
+  .onward:hover { color: var(--c); }
+  .art:hover { transform: scale(1.012); }
+}
+
+/* Paint-stroke marks that take the current colour */
+.room-head h1::after, .page-head h1::after, .placard h1::after {
+  content: ""; display: block; width: min(13rem, 70%); height: 11px; margin-top: 10px;
+  background: var(--c);
+  mask: var(--dab) left center / 100% 100% no-repeat; -webkit-mask: var(--dab) left center / 100% 100% no-repeat;
+  animation: stroke-on 460ms 120ms var(--ease-out) backwards;
+}
+.placard h1::after { width: 7rem; height: 8px; margin-top: 8px; }
+@keyframes stroke-on { from { clip-path: inset(-10% 100% -10% 0); } to { clip-path: inset(-10% 0 -10% 0); } }
+
+/* Pieces of a page arrive in a short cascade */
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+.placard > *, .page-head, .entry, .steps li, .page > .button, .prose, .sub, .contact, .room-head > * {
+  animation: rise 340ms var(--ease-out) backwards;
+}
+.placard > :nth-child(2), .entry:nth-of-type(2), .steps li:nth-child(2), .room-head > :nth-child(2) { animation-delay: 50ms; }
+.placard > :nth-child(3), .entry:nth-of-type(3), .steps li:nth-child(3), .room-head > :nth-child(3) { animation-delay: 100ms; }
+.placard > :nth-child(4), .entry:nth-of-type(4), .steps li:nth-child(4) { animation-delay: 150ms; }
+.placard > :nth-child(5) { animation-delay: 200ms; }
+.placard > :nth-child(n+6) { animation-delay: 250ms; }
+.page > .button, .prose, .sub, .contact { animation-delay: 120ms; }
+
+/* Page headings write themselves, like the name on the entrance */
+.room-head h1, .page-head h1, .placard h1 { animation: write-head 760ms var(--ease-in-out) backwards; }
+@keyframes write-head { from { clip-path: inset(-20% 102% -90% -2%); } to { clip-path: inset(-20% -2% -90% -2%); } }
+.room-head h1::after, .page-head h1::after, .placard h1::after { animation-delay: 520ms; }
+
+/* Paintings lower on the wall settle in. They stay visible while they wait. */
+.hang { transition: opacity 560ms ease, transform 560ms var(--ease-out); }
+.hang.waiting { opacity: .3; transform: translateY(22px); }
+
+.scale-view:not([hidden]) { animation: vt-fade 220ms ease backwards; }
+.person, .scaled { animation: rise 300ms 60ms var(--ease-out) backwards; }
+
+/* A series, hung on the wall at true relative size */
+.room { position: relative; padding: clamp(12px, 3vh, 34px) var(--gutter) 40px; overflow-x: clip; }
+/* The room's name, huge on the far wall. It drifts as you walk past. */
+.room::before {
+  content: attr(data-name); position: fixed; left: 0; top: 50%; z-index: -1; pointer-events: none;
+  font-family: var(--hand); font-style: italic; font-size: 42vw; font-size-adjust: .46; line-height: 1; white-space: nowrap;
+  color: var(--c); opacity: .07; transform: translate(4vw, -46%);
+}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .room::before { animation: name-drift linear both; animation-timeline: scroll(root); }
+    .hang { animation: hang-in linear both; animation-timeline: view(); animation-range: entry 0% entry 70%; }
+    .wall-label { animation: label-in linear both; animation-timeline: view(); animation-range: entry 20% entry 95%; }
+  }
+}
+@keyframes name-drift { from { transform: translate(4vw, -46%); } to { transform: translate(-48vw, -46%); } }
+@keyframes hang-in { from { opacity: .3; transform: translateY(70px) scale(.95) rotate(-1.2deg); } to { opacity: 1; transform: none; } }
+@keyframes label-in { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+.room-head h1 { color: color-mix(in srgb, var(--c) 60%, var(--ink)); }
+.placard h1, .wall-label h2 a, .entry h2 { color: color-mix(in srgb, var(--c) 60%, var(--ink)); }
+.page-head h1 { color: color-mix(in srgb, var(--tint) 45%, var(--ink)); }
+.back {
+  display: inline-block; color: var(--ink-2); font-style: italic; font-size: 17px;
+  text-decoration: none; padding: 4px 0;
+}
+.back::before { content: "\2190\00a0"; }
+.back:hover { color: var(--ink); }
+.room-head { max-width: 40rem; margin-bottom: clamp(36px, 8vh, 84px); }
+.room-head h1 { font-size: clamp(42px, 7vw, 84px); font-weight: 300; letter-spacing: -.02em; margin: 8px 0 12px; }
+.room-head p { color: var(--ink-2); }
+
+.wall {
+  container-type: inline-size;
+  --u: min(calc((100cqw - 19rem) / var(--maxw)), calc(74svh / var(--maxh)));
+}
+.hang {
+  display: grid; grid-template-columns: auto minmax(0, 17rem); gap: 2rem;
+  align-items: end; justify-content: start;
+  margin-bottom: clamp(70px, 15vh, 150px);
+}
+.art {
+  position: relative; display: block; width: calc(var(--w) * var(--u)); aspect-ratio: var(--w) / var(--h);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .6), 0 18px 44px rgba(0, 0, 0, .55);
+  transition: transform 260ms var(--ease-out);
+}
+.art.tilting { transition: none; }
+.art:active { transform: scale(.99); }
+.art img, .entry-art img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 320ms ease; }
+.art img.ready, .entry-art img.ready { opacity: 1; }
+.art .art-main { position: relative; }
+/* The painting's own colours spill softly onto the wall behind it */
+.art .art-glow {
+  position: absolute; inset: -9%; width: 118%; height: 118%; max-width: none; z-index: -1;
+  filter: blur(52px) saturate(1.6); transition: opacity 500ms ease;
+}
+.art .art-glow.ready { opacity: .62; }
+.sheen {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 260ms ease;
+  background: radial-gradient(closest-side, rgba(255, 245, 225, .26), transparent) center / 200% 200% no-repeat;
+}
+.art.tilting .sheen { opacity: 1; }
+.wall-label h2 { font-size: 22px; font-style: italic; }
+.wall-label h2 a { text-decoration: none; }
+.wall-label h2 a:hover { text-decoration: underline; }
+.caption { color: var(--ink-2); font-size: 16px; margin-top: 4px; }
+.sold { color: var(--oxide); }
+.onward { display: block; font-size: clamp(30px, 5vw, 54px); font-weight: 300; font-style: italic; text-decoration: none; transition: color 160ms ease; }
+.onward span { display: block; font-size: 16px; font-style: normal; color: var(--ink-3); }
+
+/* A single painting */
+.work {
+  display: grid; grid-template-columns: minmax(0, 1fr) 21rem;
+  height: calc(100dvh - 74px);
+}
+.stage { position: relative; overflow: hidden; background: var(--wall); min-height: 0; }
+.stage-canvas { position: absolute; inset: 0; }
+.stage-canvas .surface { cursor: grab; }
+.stage-canvas .surface:active { cursor: grabbing; }
+.plain { width: 100%; height: 100%; object-fit: contain; padding: 6%; }
+.hint {
+  position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; pointer-events: none;
+  color: var(--ink-2); font-size: 15px; font-style: italic;
+  transition: opacity 240ms ease;
+}
+.hint.gone { opacity: 0; }
+
+.scale-view { position: absolute; inset: 0; background: color-mix(in srgb, var(--c) 30%, var(--wall-2)); }
+.scale-view[hidden] { display: none; }
+.floor { position: absolute; left: 0; right: 0; bottom: 0; background: var(--deep); border-top: 1px solid var(--line); }
+.person { position: absolute; fill: color-mix(in srgb, var(--c) 55%, var(--wall-3)); }
+.scaled { position: absolute; max-width: none; object-fit: cover; box-shadow: 0 10px 28px rgba(0, 0, 0, .5); }
+.scale-note { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; color: var(--ink-2); font-size: 15px; font-style: italic; }
+
+.placard {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 18px var(--gutter) 22px 28px; overflow-y: auto;
+  border-left: 1px solid var(--line);
+}
+.placard h1 { font-size: 40px; font-style: italic; font-weight: 300; letter-spacing: -.01em; }
+.placard .caption { margin-top: -6px; }
+.story { color: var(--ink-2); }
+.button {
+  display: inline-flex; align-items: center; justify-content: center; align-self: flex-start;
+  min-height: 44px; padding: 8px 22px; border: 1px solid var(--oxide); border-radius: 999px;
+  background: var(--oxide); color: var(--dark); /* every main action uses the one coral accent */
+  text-decoration: none; text-align: center; white-space: nowrap;
+  transition: transform 160ms var(--ease-out), background-color 160ms ease, color 160ms ease;
+}
+.button:active { transform: scale(.97); }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 12px; }
+.tool {
+  appearance: none; background: none; color: var(--ink-2); font: inherit; font-size: 15px;
+  border: 1px solid var(--line); border-radius: 999px; padding: 6px 13px; min-height: 36px; cursor: pointer;
+  transition: transform 160ms var(--ease-out), color 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+.tool:active { transform: scale(.97); }
+.tool[aria-pressed="true"] { background: var(--c); color: var(--dark); border-color: var(--c); }
+.pager { display: flex; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 10px; }
+.pager a { color: var(--ink-2); text-decoration: none; padding: 6px 0; }
+.pager a:hover { color: var(--ink); }
+
+/* Text pages */
+.page { max-width: 46rem; padding: clamp(18px, 5vh, 56px) var(--gutter) 70px; margin: 0 auto; box-sizing: content-box; }
+.page-head { margin-bottom: 44px; }
+.page-head h1 { font-size: clamp(40px, 7vw, 72px); font-weight: 300; letter-spacing: -.02em; }
+.page-head p { color: var(--ink-2); margin-top: 12px; font-size: 20px; }
+
+.entry { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: 8px 22px; padding: 22px 0; border-top: 1px solid var(--line); }
+.entry.has-art { grid-template-columns: 9.5rem minmax(0, 1fr) 7.5rem; }
+.entry time { color: color-mix(in srgb, var(--c) 85%, var(--ink)); font-size: 16px; padding-top: 3px; }
+.entry h2 { font-size: 24px; font-style: italic; margin-bottom: 6px; }
+.entry p { color: var(--ink-2); }
+.entry-art { display: block; align-self: start; }
+
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px 34px; counter-reset: s; margin-bottom: 38px; }
+.steps li { counter-increment: s; border-top: 1px solid var(--line); padding-top: 12px; }
+.steps li::before { content: counter(s); color: var(--step, var(--oxide)); font-style: italic; }
+.steps li:nth-child(2) { --step: var(--ochre); }
+.steps li:nth-child(3) { --step: var(--sea); }
+.steps li:nth-child(4) { --step: var(--dusk); }
+.steps h2 { font-size: 25px; font-style: italic; margin: 2px 0 4px; }
+.steps p { color: var(--ink-2); }
+
+.prose p + p { margin-top: 1em; }
+.prose { font-size: 21px; line-height: 1.5; }
+.sub { font-size: 16px; color: var(--ink-3); font-style: italic; margin: 40px 0 8px; }
+.shows li { display: grid; grid-template-columns: 4rem 1fr; padding: 5px 0; border-top: 1px solid var(--line); }
+.shows span { color: var(--ink-3); }
+
+/* Tablet and phone */
+@media (max-width: 980px) {
+  .work { grid-template-columns: 1fr; height: auto; }
+  .stage { height: 62dvh; }
+  .placard { border-left: 0; border-top: 1px solid var(--line); padding: 18px var(--gutter) calc(22px + env(safe-area-inset-bottom)); overflow: visible; }
+  .tools { margin-top: 6px; }
+}
+
+@media (max-width: 680px) {
+  body { font-size: 17px; }
+  .top { flex-direction: column; gap: 0; }
+  .wall { --u: min(calc(100cqw / var(--maxw)), calc(68svh / var(--maxh))); }
+  .hang { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .entry, .entry.has-art { grid-template-columns: minmax(0, 1fr); }
+  .entry-art { width: 8rem; }
+  .steps { grid-template-columns: minmax(0, 1fr); }
+  .placard h1 { font-size: 34px; }
+}
+
+/* Typography, "Classic gallery": an elegant museum serif (Cormorant Garamond, in italic) for
+   names and headings, a clean modern sans (Manrope) for reading. Both have Cyrillic, so the
+   site looks the same in English and Bulgarian. font-size-adjust lifts Cormorant's small
+   letters so sizes stay comparable with the reading text. */
+.enter-text h1, .room-head h1, .page-head h1, .placard h1, .onward,
+.brand, .wall-label h2, .entry h2, .steps h2, .steps h3, .hero-name, .tag b, .idea-title, .more-head h2, .more-word {
+  font-family: var(--hand);
+  font-weight: var(--hand-weight, 500);
+  font-style: italic;
+  font-size-adjust: var(--hand-size, .46);
+  letter-spacing: -.005em;
+  word-spacing: normal;
+  font-variation-settings: normal;
+}
+/* The logo stands upright and a little heavier, like a name on a gallery wall */
+.brand, .enter-text h1 { font-style: normal; font-weight: 600; letter-spacing: .02em; }
+/* Labels on the wall and card titles read better upright */
+.tag b, .steps h3, .steps h2, .entry h2 { font-style: normal; font-weight: 600; }
+
+/* Language switch */
+.lang {
+  appearance: none; background: none; color: var(--ink); cursor: pointer; font: inherit; font-size: 14px;
+  border: 1px solid var(--line); border-radius: 999px; min-width: 36px; min-height: 30px; padding: 2px 9px;
+  transition: transform 160ms var(--ease-out), border-color 160ms ease;
+}
+.lang:active { transform: scale(.97); }
+.enter-lang {
+  position: absolute; z-index: 2;
+  top: calc(16px + env(safe-area-inset-top, 0px)); right: calc(16px + env(safe-area-inset-right, 0px));
+  background: oklch(0.185 0.012 250 / .55); border-color: oklch(0.93 0.012 85 / .4);
+}
+.top nav { align-items: center; }
+
+.price { font-size: 19px; color: color-mix(in srgb, var(--c) 60%, var(--ink)); margin-top: 3px; font-variant-numeric: tabular-nums; }
+button.button { font: inherit; cursor: pointer; }
+
+/* The message panel */
+.enquiry {
+  width: min(30rem, calc(100vw - 32px)); padding: 24px; color: var(--ink);
+  background: color-mix(in srgb, var(--tint) 24%, var(--wall-2));
+  border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
+  animation: rise 240ms var(--ease-out) backwards;
+}
+.enquiry::backdrop { background: oklch(0.15 0.01 250 / .62); }
+.enquiry h2 { font-family: var(--hand); font-weight: var(--hand-weight, 400); font-size: 34px; font-size-adjust: var(--hand-size, .62); margin-bottom: 8px; }
+.enquiry p { color: var(--ink-2); }
+.enquiry label { display: block; color: var(--ink-3); font-size: 15px; margin: 16px 0 6px; }
+.enquiry textarea {
+  display: block; width: 100%; resize: vertical; padding: 10px 12px; border-radius: 8px;
+  background: oklch(0.15 0.01 250 / .4); color: var(--ink); border: 1px solid var(--line); font: inherit; font-size: 17px;
+}
+.enquiry .button { margin-top: 12px; }
+.panel-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.button.ghost { background: none; color: var(--ink); }
+.panel-note { font-size: 15px; font-style: italic; margin-top: 12px; }
+.address { user-select: all; margin-top: 12px; }
+.panel-close {
+  appearance: none; background: none; border: 0; color: var(--ink-2); font: inherit; font-size: 15px;
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 10px 0 0;
+}
+.back, .hint, .scale-note, .sub, .draft, .enter-text p, .steps li::before, .onward span, .hero-sub, .kicker {
+  font-family: var(--note);
+  font-style: italic;
+  font-weight: 500;
+  font-size-adjust: .46; /* Cormorant runs small: keep asides as readable as the body text */
+  word-spacing: normal;
+}
+.onward span { font-weight: 400; }
+
+@media (prefers-reduced-motion: reduce) {
+  .entrance, .enter-canvas, .art, .button, .tool, .enter-btn, .enter-text, .hang { transition-property: opacity, color, background-color, border-color; }
+  .art:active, .button:active, .tool:active, .enter-btn:active, .art:hover, .entrance.leaving .enter-canvas, .entrance.leaving .enter-text { transform: none; }
+  .top nav a::after { transition: none; }
+  /* Keep gentle fades. Drop the movement. */
+  .placard > *, .page-head, .entry, .steps li, .page > .button, .prose, .sub, .contact, .room-head > *,
+  .person, .scaled, .enter-text p, .enter-btn { animation-name: vt-fade; }
+  .enter-text h1, .room-head h1::after, .page-head h1::after, .placard h1::after,
+  .room-head h1, .page-head h1, .placard h1 { animation: none; }
+}
+
+/* The home page: an endless salon wall */
+body[data-view="wall"] .top {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 3;
+  padding-bottom: 34px;
+  /* Nearly solid behind the menu text, so a light painting or the blank canvas can't show through it,
+     then a soft fade so the wall still runs up under the header. */
+  background: linear-gradient(to bottom, oklch(0.15 0.01 250 / .97), oklch(0.15 0.01 250 / .94) 58%, oklch(0.15 0.01 250 / 0));
+}
+.salon {
+  --here: #7fbef3;
+  position: sticky; top: 0; z-index: 0; height: 100vh; height: 100svh; overflow: hidden;
+  touch-action: pan-y;
+  transform-origin: 50% 30%; will-change: transform;
+  transition: background-color 1100ms ease, border-radius 300ms var(--ease-out); user-select: none; -webkit-user-select: none; cursor: grab;
+  /* Only a breath of the painting's series colour, so the wall never changes how the paintings look */
+  background-color: color-mix(in oklch, var(--here) 9%, var(--dark));
+}
+.salon.behind { border-radius: 32px; }
+.salon.dragging { cursor: grabbing; }
+.salon.dragging .slot { pointer-events: none; }
+/* Gallery light in the middle, darker corners */
+.salon::after {
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: radial-gradient(ellipse 75% 70% at 50% 46%, rgba(255, 236, 205, .07), transparent 55%, oklch(0.13 0.01 250 / .55) 100%);
+}
+.salon-field { position: absolute; inset: 0; z-index: 1; }
+
+.salon-hero {
+  position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; white-space: nowrap; will-change: transform;
+}
+.hero-name {
+  font-size: clamp(170px, 30vw, 440px); line-height: .8;
+  color: color-mix(in srgb, var(--here) 55%, var(--ink)); opacity: .13;
+  transition: color 1100ms ease;
+}
+.hero-sub { font-size: clamp(18px, 2vw, 26px); color: var(--ink-2); opacity: .55; margin-top: 10px; }
+
+.slot {
+  position: absolute; left: 0; top: 0; display: block; color: inherit; text-decoration: none;
+  will-change: transform; -webkit-user-drag: none; -webkit-touch-callout: none;
+  transition: opacity 300ms ease;
+}
+.slot:focus-visible { outline: none; }
+.slot:focus-visible .frame { outline: 2px solid var(--c); outline-offset: 10px; }
+.swing { display: block; position: relative; transform-origin: 50% -36px; will-change: transform; }
+.string { position: absolute; left: 20%; width: 60%; top: -34px; height: 34px; overflow: visible; }
+.string path { fill: none; stroke: oklch(0.93 0.012 85 / .32); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.nail {
+  position: absolute; left: 50%; top: -40px; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #e6dccb, #6b6157 60%, #3a332d);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, .6);
+}
+.frame {
+  position: relative; display: block; width: 100%;
+  box-shadow: 0 0 0 5px var(--deep), 0 0 0 6px oklch(0.93 0.012 85 / .12), 0 24px 54px rgba(0, 0, 0, .6);
+  transition: transform 200ms var(--ease-out), box-shadow 200ms ease;
+}
+.frame img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; opacity: 0; transition: opacity 420ms ease; }
+.frame img.ready { opacity: 1; }
+.frame .art-glow { inset: -14%; width: 128%; height: 128%; z-index: -1; filter: blur(46px) saturate(1.5); }
+.frame .art-glow.ready { opacity: .5; }
+.peek {
+  position: absolute; left: 50%; bottom: 12px; transform: translate(-50%, 6px); white-space: nowrap;
+  background: oklch(0.185 0.012 250 / .78); color: var(--ink); font-size: 14px; padding: 5px 12px; border-radius: 999px;
+  opacity: 0; transition: opacity 200ms ease, transform 200ms var(--ease-out); pointer-events: none;
+}
+.tag { display: flex; flex-direction: column; align-items: center; gap: 5px; margin-top: 16px; text-align: center; }
+.tag b { font-size: 26px; line-height: 1; color: color-mix(in srgb, var(--c) 65%, var(--ink)); }
+.tag em {
+  font-style: normal; font-size: 14px; font-variant-numeric: tabular-nums; color: var(--ink);
+  padding: 2px 11px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--c) 60%, transparent);
+  background: color-mix(in srgb, var(--c) 20%, oklch(0.185 0.012 250 / .5));
+}
+.tag em.is-sold { color: var(--ink-2); border-color: var(--line); background: oklch(0.185 0.012 250 / .5); }
+.slot.away { opacity: .1; pointer-events: none; }
+.slot.away .frame { transform: scale(.94); }
+
+/* The blank canvas that invites a commission */
+.frame.blank {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  padding: 10%; text-align: center; color: #3b3029;
+  background: repeating-linear-gradient(45deg, rgba(0, 0, 0, .025) 0 2px, transparent 2px 5px), linear-gradient(160deg, #f4ecdf, #e2d6c3);
+}
+.idea-title { font-size: 40px; line-height: .95; color: #b24f2a; }
+.idea-text { font-size: 14px; line-height: 1.35; max-width: 16em; }
+.idea .tag em { background: var(--oxide); border-color: var(--oxide); color: var(--dark); }
+
+@media (hover: hover) and (pointer: fine) {
+  .slot:hover .frame { transform: scale(1.045); box-shadow: 0 0 0 5px var(--deep), 0 0 0 6px color-mix(in srgb, var(--c) 60%, transparent), 0 34px 70px rgba(0, 0, 0, .65); }
+  .slot:hover .peek { opacity: 1; transform: translate(-50%, 0); }
+  .chip:hover { color: var(--ink); }
+  .surprise:hover { border-color: var(--ink); background: var(--wall-3); }
+  .room-link:hover { border-color: var(--ink); background: var(--wall-3); }
+}
+
+/* Paintings are hung one by one when you arrive */
+.salon.arriving .frame, .salon.arriving .tag, .salon.arriving .string, .salon.arriving .nail {
+  animation: hang-drop 760ms var(--d, 0ms) var(--ease-out) backwards;
+}
+@keyframes hang-drop { from { opacity: 0; transform: translateY(-46px); } }
+.salon.arriving .tag { animation-name: rise; animation-delay: calc(var(--d, 0ms) + 260ms); }
+
+/* Controls along the bottom */
+.salon-ui {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 60px 16px calc(16px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, oklch(0.15 0.01 250 / .7), oklch(0.15 0.01 250 / 0));
+  cursor: auto;
+}
+.salon-ui > * { pointer-events: auto; }
+.salon-hint {
+  display: flex; align-items: center; gap: 10px; max-width: 100%;
+  background: oklch(0.185 0.012 250 / .78); border: 1px solid var(--line); border-radius: 999px;
+  padding: 7px 16px; font-size: 15px; color: var(--ink);
+  transition: opacity 400ms ease, transform 400ms var(--ease-out);
+  animation: rise 500ms 900ms var(--ease-out) backwards;
+}
+.salon.moved .salon-hint { opacity: 0; transform: translateY(8px); pointer-events: none; }
+.hand {
+  flex: none; position: relative; width: 26px; height: 14px;
+}
+.hand::before {
+  content: ""; position: absolute; top: 2px; left: 0; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--ochre); box-shadow: 0 0 0 4px rgba(227, 173, 63, .25);
+  animation: swipe 1.8s var(--ease-in-out) infinite;
+}
+@keyframes swipe { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(16px); } }
+.salon-bar { display: flex; align-items: center; gap: 8px; max-width: 100%; }
+.chips {
+  display: flex; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; overscroll-behavior: contain;
+  padding: 4px; border-radius: 999px; border: 1px solid var(--line);
+  background: oklch(0.185 0.012 250 / .8); touch-action: pan-x;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  appearance: none; flex: none; display: inline-flex; align-items: center; gap: 7px;
+  background: none; border: 0; border-radius: 999px; color: var(--ink-2); cursor: pointer;
+  font: inherit; font-size: 15px; padding: 7px 14px; min-height: 36px; white-space: nowrap;
+  transition: background-color 200ms ease, color 200ms ease, transform 160ms var(--ease-out);
+}
+.chip:active { transform: scale(.96); }
+.chip[style]::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.chips { position: relative; }
+/* The highlight is a clipped coloured copy on top; the real buttons underneath stay plain. */
+.chips-on {
+  position: absolute; top: 4px; left: 4px; display: flex; gap: 4px; pointer-events: none;
+  transition: clip-path 260ms var(--ease-out);
+}
+.chips-on .chip { background: var(--ink); color: var(--dark); }
+.chips-on .chip[style] { background: var(--c); }
+.chips-on .chip[style]::before { background: var(--dark); }
+.surprise {
+  appearance: none; flex: none; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  /* Secondary: an outline, so "Get in touch" is the one filled accent in the bar */
+  font: inherit; font-size: 15px; color: var(--ink); background: oklch(0.225 0.013 250 / .88);
+  border: 1px solid var(--ochre); border-radius: 999px; padding: 8px 16px; min-height: 44px; white-space: nowrap;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms var(--ease-out);
+}
+.surprise:active { transform: scale(.96); }
+.die {
+  width: 14px; height: 14px; border-radius: 3px; background:
+    radial-gradient(circle at 30% 30%, var(--ochre) 1.6px, transparent 2px),
+    radial-gradient(circle at 70% 70%, var(--ochre) 1.6px, transparent 2px),
+    radial-gradient(circle at 50% 50%, var(--ochre) 1.6px, transparent 2px);
+  border: 1.5px solid var(--ochre); transition: transform 500ms var(--ease-out);
+}
+.surprise:active .die { transform: rotate(180deg); }
+.room-link {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 6px 18px; border-radius: 999px;
+  background: oklch(0.225 0.013 250 / .9); color: var(--ink); border: 1px solid var(--c); text-decoration: none; font-size: 16px;
+  transition: background-color 160ms ease, border-color 160ms ease; animation: rise 300ms var(--ease-out) backwards;
+}
+.room-link::after { content: "\00a0\2192"; }
+.room-link[hidden] { display: none; }
+
+@media (max-width: 680px) {
+  .salon-bar { flex-direction: column-reverse; width: 100%; }
+  .chips { max-width: 100%; }
+  .salon-hint { font-size: 14px; border-radius: 16px; }
+  .tag b { font-size: 22px; }
+  .idea-title { font-size: 30px; }
+  .idea-text { font-size: 12px; }
+  .frame .art-glow { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .salon.arriving .frame, .salon.arriving .tag, .salon.arriving .string, .salon.arriving .nail { animation-name: vt-fade; }
+  .hand::before { animation: none; }
+  .salon, .hero-name { transition: none; }
+}
+
+/* The wall steps back and dims as the page scrolls over it */
+.salon-dim { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: var(--deep); opacity: 0; }
+.salon.behind .salon-hint { opacity: 0; pointer-events: none; }
+.bar-actions { display: flex; gap: 8px; flex: none; }
+.down {
+  appearance: none; width: 44px; height: 44px; flex: none; border-radius: 50%; cursor: pointer;
+  border: 1px solid var(--line); background: oklch(0.185 0.012 250 / .8); color: var(--ink);
+  display: grid; place-items: center; transition: transform 160ms var(--ease-out), border-color 160ms ease;
+}
+.down span {
+  width: 10px; height: 10px; border: solid currentColor; border-width: 0 2px 2px 0;
+  transform: translateY(-2px) rotate(45deg); animation: nudge 1.8s var(--ease-in-out) infinite;
+}
+@keyframes nudge { 0%, 100% { translate: 0 0; } 50% { translate: 0 4px; } }
+.down:active { transform: scale(.94); }
+
+/* Journal, commissions and studio rise over the wall like a sheet of paper */
+.home-more {
+  position: relative; z-index: 1; overflow: clip;
+  background: linear-gradient(var(--wall-2), var(--dark) 40%);
+  border-radius: 34px 34px 0 0; box-shadow: 0 -40px 90px rgba(0, 0, 0, .6);
+}
+.more {
+  position: relative;
+  padding: clamp(80px, 14vh, 150px) max(var(--gutter), calc((100% - 72rem) / 2));
+  background: radial-gradient(60rem 32rem at 8% 0%, color-mix(in oklch, var(--c) 12%, transparent), transparent 70%);
+}
+.more + .more { border-top: 1px solid var(--line); }
+.more-word {
+  position: absolute; top: 4%; left: 0; z-index: 0; pointer-events: none; white-space: nowrap;
+  font-size: 24vw; line-height: 1; color: var(--c); opacity: .07;
+  transform: translate3d(35vw, 0, 0); will-change: transform;
+}
+.more > :not(.more-word) { position: relative; z-index: 1; }
+.more-head { max-width: 42rem; margin-bottom: 52px; }
+.kicker { color: color-mix(in srgb, var(--c) 80%, var(--ink)); font-size: 17px; }
+.more-head h2 {
+  font-size: clamp(46px, 7vw, 88px); margin: 6px 0 14px;
+  color: color-mix(in srgb, var(--c) 55%, var(--ink));
+  clip-path: inset(-20% 102% -90% -2%); transition: clip-path 1000ms 150ms var(--ease-in-out);
+}
+.more-head.in h2 { clip-path: inset(-20% -2% -90% -2%); }
+.more-head h2::after {
+  content: ""; display: block; width: min(13rem, 70%); height: 11px; margin-top: 10px; background: var(--c);
+  mask: var(--dab) left center / 100% 100% no-repeat; -webkit-mask: var(--dab) left center / 100% 100% no-repeat;
+  transform: scaleX(0); transform-origin: left; transition: transform 600ms 900ms var(--ease-out);
+}
+.more-head.in h2::after { transform: scaleX(1); }
+.more-head > p:last-child { color: var(--ink-2); font-size: 20px; }
+
+.reveal { opacity: 0; transform: translateY(44px); transition: opacity 700ms ease, transform 900ms var(--ease-out); }
+.reveal.in { opacity: 1; transform: none; }
+.reveal { transition-delay: var(--stagger, 0ms); }
+.more-entries > :nth-child(2), .more-steps > :nth-child(2), .more-prose > :nth-child(2) { --stagger: 70ms; }
+.more-entries > :nth-child(3), .more-steps > :nth-child(3) { --stagger: 140ms; }
+.more-steps > :nth-child(4) { --stagger: 210ms; }
+.more-entries .entry {
+  transition-property: opacity, transform, translate, border-color;
+  transition-duration: 700ms, 900ms, 220ms, 200ms;
+  transition-timing-function: ease, var(--ease-out), var(--ease-out), ease;
+  transition-delay: var(--stagger, 0ms), var(--stagger, 0ms), 0ms, 0ms;
+}
+
+.more-entries { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px; }
+.more-entries .entry, .more-entries .entry.has-art {
+  display: flex; flex-direction: column; gap: 8px; padding: 16px 16px 20px;
+  border: 1px solid var(--line); border-radius: 18px; background: oklch(0.93 0.012 85 / .03);
+}
+.more-entries .entry-art { order: -1; width: 100%; max-height: 210px; overflow: hidden; border-radius: 10px; margin-bottom: 6px; }
+.more-entries .entry p { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.more-steps { margin-bottom: 40px; }
+.more-steps li { border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; background: oklch(0.93 0.012 85 / .03); }
+.steps h3 { font-size: 25px; margin: 2px 0 4px; font-weight: 400; line-height: 1.1; }
+.more-prose { max-width: 42rem; }
+.more-contact { color: var(--ink-2); margin-top: 30px; }
+.more-link {
+  display: inline-block; margin-top: 40px; font-size: 19px; text-decoration: none;
+  color: color-mix(in srgb, var(--c) 60%, var(--ink)); border-bottom: 1px solid currentColor;
+}
+.more-link::after { content: "\00a0\2192"; display: inline-block; transition: transform 200ms var(--ease-out); }
+
+@media (hover: hover) and (pointer: fine) {
+  .more-link:hover::after { transform: translateX(5px); }
+  .down:hover { border-color: var(--ink); }
+  .more-entries .entry.in:hover { translate: 0 -5px; border-color: color-mix(in srgb, var(--c) 45%, transparent); }
+}
+
+@media (max-width: 900px) {
+  .more-entries { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* "Spin and choose": her paintings on a turning circle, lit like a gallery */
+.ring-stage {
+  --iw: clamp(200px, 31vw, 430px);
+  position: relative; height: calc(var(--iw) * 1 + 100px); margin: 0 calc(var(--gutter) * -1);
+  perspective: 1500px; perspective-origin: 50% 38%;
+  touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: grab;
+}
+.ring-stage.dragging { cursor: grabbing; }
+.ring-stage::before { /* the gallery spotlight on the front painting */
+  content: ""; position: absolute; left: 50%; top: -12%; width: min(90vw, 760px); height: 120%; translate: -50% 0; pointer-events: none;
+  background: radial-gradient(50% 55% at 50% 42%, oklch(0.95 0.02 85 / .10), transparent 70%);
+}
+.ring { position: absolute; inset: 0; transform-style: preserve-3d; }
+.ring-item {
+  position: absolute; left: 50%; top: 40px; width: var(--iw); height: var(--iw); margin-left: calc(var(--iw) / -2);
+  display: flex; align-items: center; justify-content: center;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden; -webkit-tap-highlight-color: transparent;
+}
+.ring-item img {
+  max-width: 100%; max-height: 100%; display: block;
+  border: 5px solid oklch(0.15 0.01 250);
+  box-shadow: 0 0 0 1px oklch(1 0 0 / .08), 0 26px 50px oklch(0 0 0 / .55);
+  -webkit-box-reflect: below 14px linear-gradient(transparent 72%, oklch(1 0 0 / .14));
+  transition: transform 400ms var(--ease-out);
+}
+.ring-item.front img { transform: scale(1.04); }
+.ring-item:focus-visible { outline: none; }
+.ring-item:focus-visible img { outline: 2px solid var(--ink); outline-offset: 6px; }
+
+.ring-bar { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 18px; }
+.ring-caption { min-height: 4.2em; min-width: 0; flex: 0 1 26rem; text-align: center; display: grid; align-content: center; gap: 2px; }
+.ring-caption b { font-family: "Cormorant Garamond", Georgia, serif; font-size: clamp(26px, 3vw, 34px); font-weight: 600; line-height: 1.1; animation: rise 360ms var(--ease-out); }
+.ring-caption span { color: var(--ink-2); font-size: 15px; }
+.ring-caption .ring-chosen { color: var(--ochre); font-size: 13px; letter-spacing: .2em; text-transform: uppercase; animation: rise 360ms var(--ease-out); }
+.ring-arrow {
+  flex: 0 0 auto; width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--ink);
+  font-size: 26px; line-height: 1; cursor: pointer; transition: border-color 200ms ease, transform 160ms var(--ease-out);
+}
+.ring-arrow span { position: relative; top: -2px; }
+.ring-arrow:active { transform: scale(.94); }
+.ring-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 14px 28px; margin-top: 18px; }
+.ring-actions .more-link { margin-top: 0; }
+.ring-spin { display: inline-flex; align-items: center; gap: 10px; }
+.spin-icon { display: inline-block; font-size: 20px; line-height: 1; transition: transform 500ms var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .ring-arrow:hover { border-color: var(--ink); }
+  .ring-spin:hover .spin-icon { transform: rotate(200deg); }
+}
+@media (max-width: 680px) {
+  .ring-stage { --iw: clamp(170px, 62vw, 260px); }
+  .ring-bar { gap: 10px; }
+  .ring-arrow { width: 44px; height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ring-item img, .spin-icon { transition: none; }
+  .ring-caption b, .ring-caption .ring-chosen { animation: none; }
+}
+@media (max-width: 680px) {
+  .home-more { border-radius: 24px 24px 0 0; }
+  .more-word { font-size: 34vw; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .salon { border-radius: 0; }
+  .reveal { transform: none; transition: opacity 400ms ease; }
+  .more-head h2 { clip-path: none; transition: none; }
+  .more-head h2::after { transform: none; transition: none; }
+  .more-word { transform: none; }
+  .down span { animation: none; }
+}
+/* Fingers need bigger targets than a mouse */
+@media (pointer: coarse) {
+  .chip { min-height: 44px; }
+  .lang { min-height: 40px; min-width: 44px; }
+}
+
+/* Painting page: act, share, keep looking */
+.placard-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.placard-actions .button { align-self: auto; }
+.siblings .sub { margin: 6px 0 8px; }
+.sib-row { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 6px; }
+.sib-row::-webkit-scrollbar { display: none; }
+.sib {
+  flex: none; height: 74px; display: block; overflow: hidden; border-radius: 4px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .45);
+  transition: transform 160ms var(--ease-out), box-shadow 200ms ease;
+}
+.sib img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 320ms ease; }
+.sib img.ready { opacity: 1; }
+.sib:active { transform: scale(.96); }
+@media (hover: hover) and (pointer: fine) {
+  .sib:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(0, 0, 0, .55), 0 0 0 1px var(--c); }
+  .button.ghost:hover { color: var(--dark); }
+}
+
+/* Worst-case content (checked with ?data=worst) */
+/* Wall labels may be wider than a small painting, and long titles stop at two lines
+   (the full title is on the painting's own page, and in the tooltip). */
+.tag { position: relative; left: 50%; translate: -50% 0; width: max(100%, 190px); }
+.tag b {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden; overflow-wrap: anywhere; padding-bottom: .08em;
+}
+/* A painting whose photo hasn't been added yet */
+.no-photo { position: relative; }
+.no-photo::after {
+  content: attr(data-missing); position: absolute; inset: 0; display: grid; place-items: center; padding: 8px;
+  text-align: center; font-size: 13px; font-style: italic; color: oklch(0.93 0.012 85 / .8);
+  background: repeating-linear-gradient(45deg, rgba(0, 0, 0, .14) 0 6px, transparent 6px 12px);
+}
+.sib.no-photo::after { font-size: 11px; }
+/* More series than fit: the row fades where it continues */
+.chips.fade-right { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent); }
+.chips.fade-left { -webkit-mask-image: linear-gradient(to right, transparent, #000 48px); mask-image: linear-gradient(to right, transparent, #000 48px); }
+.chips.fade-left.fade-right { -webkit-mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent); }
+.room-link { max-width: calc(100vw - 32px); text-align: center; }
+.placard h1.long { font-size: 30px; }
+.placard-actions .button:first-child { flex: 1 1 auto; }
+
+/* See it on your wall */
+.roomview {
+  width: min(1100px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain;
+  padding: 20px; color: var(--ink); background: var(--wall-2);
+  border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 24px 80px rgba(0, 0, 0, .6);
+  animation: rise 240ms var(--ease-out) backwards;
+}
+.roomview::backdrop { background: oklch(0.15 0.01 250 / .78); }
+.room-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.room-top h2 { font-family: var(--hand); font-weight: var(--hand-weight, 400); font-size: 36px; font-size-adjust: var(--hand-size, .62); }
+.room-top p { color: var(--ink-2); font-size: 16px; margin-top: 4px; }
+.room-top .panel-close { padding: 4px 0; flex: none; }
+.room-stage {
+  --r: 1.6;
+  position: relative; overflow: hidden; touch-action: none; user-select: none;
+  width: min(100%, calc(60dvh * var(--r))); aspect-ratio: var(--r); margin: 14px auto 16px;
+  border-radius: 10px;
+  /* A plain wall and floor until they add their own room */
+  background: linear-gradient(to bottom, #ddd3c4 0%, #cdc0ae 74%, #7a5c43 74%, #5e4532 100%);
+}
+.room-bg { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: fill; }
+.room-art {
+  position: absolute; left: 0; top: 0; cursor: grab; touch-action: none;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .45);
+  transition: box-shadow 200ms ease, scale 200ms var(--ease-out);
+}
+.room-art img { display: block; width: 100%; height: 100%; max-width: none; object-fit: cover; opacity: 0; transition: opacity 300ms ease; }
+.room-art img.ready { opacity: 1; }
+.room-art.frame-black { box-shadow: 0 0 0 var(--fw, 6px) #1d1916, 0 12px 30px rgba(0, 0, 0, .45); }
+.room-art.frame-gold { box-shadow: 0 0 0 var(--fw, 6px) #b8923e, 0 0 0 calc(var(--fw, 6px) + 1px) #6e5321, 0 12px 30px rgba(0, 0, 0, .45); }
+.room-art.lifted { cursor: grabbing; scale: 1.02; }
+.room-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.room-controls .button { align-self: auto; }
+.room-file { position: relative; cursor: pointer; }
+.room-file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.room-file:focus-within { outline: 2px solid var(--oxide); outline-offset: 3px; }
+.room-size { display: flex; align-items: center; gap: 10px; color: var(--ink-2); font-size: 15px; }
+.room-size input { width: 160px; accent-color: var(--oxide); }
+.room-frames { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; }
+.room-frames .chip[aria-pressed="true"] { background: var(--ink); color: var(--dark); }
+@media (max-width: 680px) {
+  .roomview { padding: 16px; }
+  .room-stage { width: 100%; }
+  .room-size input { width: 120px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .room-art, .room-art.lifted { transition: none; scale: none; }
+}
+
+/* Long button labels (Bulgarian especially) wrap instead of stretching the page */
+@media (max-width: 980px) {
+  .work { grid-template-columns: minmax(0, 1fr); }
+  .placard-actions .button { white-space: normal; min-width: 0; text-align: center; }
+}
+/* Phones: the logo and the language switch share the top row; the menu gets its own full row */
+@media (max-width: 680px) {
+  .top { position: relative; padding-top: calc(10px + env(safe-area-inset-top)); padding-bottom: 6px; }
+  body[data-view="wall"] .top { position: absolute; padding-bottom: 26px; }
+  .brand { display: inline-flex; align-items: center; min-height: 44px; }
+  .top nav { width: 100%; justify-content: space-between; gap: 6px; font-size: 16px; flex-wrap: nowrap; }
+  .top nav a { padding: 12px 0; }
+  .top nav .lang { position: absolute; right: var(--gutter); top: calc(12px + env(safe-area-inset-top)); }
+}
+@media (max-width: 340px) { .top nav { font-size: 14.5px; } }
+/* Fingers need room: links and small buttons get a 44px-tall touch area */
+@media (pointer: coarse) {
+  .more-link, .back { padding-block: 8px; }
+  .tools .tool, .placard-actions .button, .ring-arrow { min-height: 44px; }
+  .ring-arrow { min-width: 44px; }
+  .wall-label h2 a { display: inline-block; padding-block: 6px; }
+  .pager a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+}
+
+/* Ivelina's photo, hung like one of her paintings */
+.portrait { position: relative; }
+.portrait-frame {
+  position: relative; overflow: hidden; border-radius: 4px; aspect-ratio: 16 / 9;
+  box-shadow: 0 0 0 8px var(--deep), 0 0 0 9px oklch(0.93 0.012 85 / .14), 0 30px 70px rgba(0, 0, 0, .6);
+}
+.portrait-frame img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  filter: contrast(1.06) saturate(1.08); /* a touch of gallery polish, nothing changed in the photo */
+}
+/* Corners fall into shadow, and a warm lamp drifts slowly across the room */
+.portrait-frame::before, .portrait-frame::after { content: ""; position: absolute; inset: 0; pointer-events: none; }
+.portrait-frame::before { background: radial-gradient(ellipse 85% 80% at 55% 45%, transparent 55%, oklch(0.15 0.01 250 / .55) 100%); z-index: 1; }
+.portrait-frame::after {
+  z-index: 2; mix-blend-mode: soft-light; opacity: .75;
+  background: radial-gradient(circle 32% at 30% 35%, rgba(255, 214, 150, .9), transparent 70%);
+  animation: lamp-drift 14s ease-in-out infinite alternate;
+}
+@keyframes lamp-drift { from { translate: -8% -4%; } to { translate: 38% 10%; } }
+.portrait figcaption {
+  position: absolute; right: 18px; bottom: -40px; transform: rotate(-3deg);
+  font-family: var(--hand); font-weight: var(--hand-weight, 400); font-size: 34px; font-size-adjust: var(--hand-size, .62);
+  color: color-mix(in srgb, var(--c, #e58fa0) 60%, var(--ink));
+}
+.portrait figcaption::after {
+  content: ""; display: block; height: 8px; margin-top: 2px; background: var(--c, #e58fa0);
+  mask: var(--dab) left center / 100% 100% no-repeat; -webkit-mask: var(--dab) left center / 100% 100% no-repeat;
+}
+
+/* The reveal: paint sweeps the photo in while the room settles from a slight zoom */
+.portrait.reveal { opacity: 1; transform: none; }
+.portrait.reveal .portrait-frame { clip-path: inset(0 100% 0 0 round 4px); transition: clip-path 1300ms var(--ease-in-out); }
+.portrait.reveal .portrait-frame img { scale: 1.14; transition: scale 2600ms var(--ease-out); }
+.portrait.reveal figcaption { opacity: 0; translate: 0 10px; transition: opacity 600ms ease 1100ms, translate 600ms var(--ease-out) 1100ms; }
+.portrait.reveal.in .portrait-frame { clip-path: inset(0 0 0 0 round 4px); }
+.portrait.reveal.in .portrait-frame img { scale: 1; }
+.portrait.reveal.in figcaption { opacity: 1; translate: 0 0; }
+.portrait.on-page {
+  margin: 0 0 84px; width: min(1100px, calc(100vw - 2 * var(--gutter)));
+  position: relative; left: 50%; translate: -50% 0;
+}
+.portrait.on-page .portrait-frame { animation: sweep-in 1300ms 200ms var(--ease-in-out) backwards; }
+.portrait.on-page .portrait-frame img { animation: settle 2600ms 200ms var(--ease-out) backwards; }
+.portrait.on-page figcaption { animation: rise 600ms 1300ms var(--ease-out) backwards; }
+@keyframes sweep-in { from { clip-path: inset(0 100% 0 0 round 4px); } to { clip-path: inset(0 0 0 0 round 4px); } }
+@keyframes settle { from { scale: 1.14; } }
+
+.studio-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 64px; align-items: center; }
+.studio-grid .more-prose { max-width: none; }
+@media (max-width: 900px) {
+  .studio-grid { grid-template-columns: minmax(0, 1fr); gap: 72px; }
+}
+@media (max-width: 680px) {
+  /* On a phone the caption sits under the photo on one line, instead of overlapping it */
+  .portrait figcaption { position: static; width: max-content; max-width: 100%; margin: 18px 4px 0 auto; font-size: 24px; white-space: nowrap; }
+  .portrait-frame { aspect-ratio: 4 / 3; box-shadow: 0 0 0 5px var(--deep), 0 20px 50px rgba(0, 0, 0, .6); }
+  .portrait-frame img { object-position: 30% 50%; }
+  .studio-grid { gap: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .portrait-frame::after { animation: none; }
+  .portrait.reveal .portrait-frame, .portrait.reveal .portrait-frame img { clip-path: none; scale: none; transition: none; }
+  .portrait.on-page .portrait-frame, .portrait.on-page .portrait-frame img { animation: none; }
+}
+
+/* Get in touch: a sister to "Surprise me", in the oxide colour */
+.talk {
+  appearance: none; flex: none; display: inline-flex; align-items: center; gap: 9px; cursor: pointer;
+  font: inherit; font-size: 15px; color: var(--dark); background: var(--oxide);
+  border: 1px solid var(--oxide); border-radius: 999px; padding: 8px 16px; min-height: 44px; white-space: nowrap;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms var(--ease-out);
+}
+.talk:active { transform: scale(.96); }
+.bubble { position: relative; width: 17px; height: 13px; border: 2px solid var(--dark); border-radius: 6px; }
+.bubble::after {
+  content: ""; position: absolute; left: 2px; bottom: -6px; width: 6px; height: 6px;
+  border-left: 2px solid var(--dark); border-bottom: 2px solid var(--dark); background: var(--oxide);
+  transform: skewY(-35deg); transition: background-color 160ms ease;
+}
+.talk-float {
+  position: fixed; z-index: 40;
+  right: max(16px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom));
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .45);
+  animation: rise 420ms 600ms var(--ease-out) backwards;
+}
+body[data-view="wall"] .talk-float, body[data-view="work"] .talk-float { display: none; }
+.bar-actions { flex-wrap: wrap; justify-content: center; }
+@media (hover: hover) and (pointer: fine) {
+  .talk:hover { background: var(--ink); border-color: var(--ink); }
+  .talk:hover .bubble::after { background: var(--ink); }
+}
+@media (max-width: 420px) {
+  /* Three buttons in one row on a phone: "Surprise me" becomes just its die */
+  .surprise { width: 44px; padding: 0; justify-content: center; }
+  .surprise .label { display: none; }
+}
+
+/* The Get in touch form */
+.enquiry.contact { width: min(36rem, calc(100vw - 24px)); }
+.contact input[type="text"] {
+  display: block; width: 100%; padding: 10px 12px; border-radius: 8px;
+  background: oklch(0.15 0.01 250 / .4); color: var(--ink); border: 1px solid var(--line); font: inherit; font-size: max(16px, 1em);
+}
+.contact textarea { font-size: max(16px, 1em); }
+.contact input::placeholder, .contact textarea::placeholder { color: oklch(0.93 0.012 85 / .42); }
+.contact input:focus-visible, .contact textarea:focus-visible { outline: 2px solid var(--oxide); outline-offset: 1px; }
+.contact-topics, .contact-sizes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+@media (max-width: 480px) {
+  .contact-sizes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .contact-sizes .chip { white-space: normal; text-align: center; line-height: 1.2; padding-inline: 8px; }
+}
+.contact .chip { border: 1px solid var(--line); }
+.contact .chip[aria-pressed="true"] { background: var(--ink); color: var(--dark); border-color: var(--ink); }
+.contact-idea { margin-top: 4px; padding: 4px 16px 16px; border-left: 3px solid var(--oxide); background: rgba(224, 122, 76, .06); border-radius: 0 10px 10px 0; animation: rise 260ms var(--ease-out) backwards; }
+.contact-idea[hidden] { display: none; }
+.contact-label { color: var(--ink-3); font-size: 15px; margin: 16px 0 0; }
+.contact-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+.contact-error { color: #f0a27c; margin-top: 12px; }
+.contact-send { display: flex; align-items: center; gap: 18px; margin-top: 18px; }
+.contact-send .button { margin-top: 0; }
+.contact-send .panel-close { padding: 0; }
+.contact-after { margin-top: 16px; animation: rise 280ms var(--ease-out) backwards; }
+.contact-after textarea { display: block; width: 100%; margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: oklch(0.15 0.01 250 / .4); color: var(--ink); border: 1px solid var(--line); font: inherit; }
+.contact-done { font-family: var(--hand); font-weight: var(--hand-weight, 400); font-size: 34px; font-size-adjust: var(--hand-size, .62); color: color-mix(in srgb, var(--oxide) 60%, var(--ink)); }
+@media (max-width: 520px) {
+  .contact-row { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The hero: the painting is the whole screen. No buttons; the name and a quiet cue appear only
+   after the pull-back from the brushstrokes has finished. */
+.entrance { cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
+.entrance .enter-text h1, .entrance .enter-text p { animation: none; opacity: 0; }
+.entrance.revealed .enter-text h1 { opacity: 1; animation: write-on 1400ms 100ms var(--ease-in-out) backwards; }
+.entrance.revealed .enter-text p { opacity: 1; animation: rise 600ms 900ms var(--ease-out) backwards; }
+.entrance .enter-text { padding-bottom: calc(clamp(96px, 16vh, 150px) + env(safe-area-inset-bottom)); }
+.enter-text h1 { text-shadow: 0 4px 30px oklch(0.15 0.01 250 / .6); }
+.enter-canvas::after { opacity: 0; transition: opacity 1200ms ease; }
+.entrance.revealed .enter-canvas::after { opacity: 1; }
+.enter-cue {
+  position: absolute; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom)); translate: -50% 0;
+  display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none;
+  font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2);
+  opacity: 0; transition: opacity 800ms ease 1400ms;
+}
+.entrance.revealed .enter-cue { opacity: 1; }
+/* A thin line with a drop of light running down it: "keep going" without a button */
+.cue-line { position: relative; width: 1px; height: 44px; overflow: hidden; background: oklch(0.93 0.012 85 / .22); }
+.cue-line::after {
+  content: ""; position: absolute; left: 0; top: -40%; width: 1px; height: 40%;
+  background: linear-gradient(to bottom, transparent, var(--ink));
+  animation: cue-drop 1.8s var(--ease-in-out) infinite;
+}
+@keyframes cue-drop { to { top: 100%; } }
+.entrance.leaving .enter-cue { opacity: 0; transition-delay: 0ms; transition-duration: 160ms; }
+.enter-cue span:last-child { white-space: nowrap; }
+.enter-key { padding: 0; border: 0; }
+@media (max-width: 420px) { .enter-cue { font-size: 11px; letter-spacing: .1em; } }
+/* The brand opening: IV Art alone under a gallery lamp, before the gallery */
+.brand-intro { justify-content: center; background: var(--dark); overflow: hidden; }
+.brand-intro .enter-canvas {
+  inset: -8%; opacity: 1; transition: none; will-change: transform;
+  background:
+    radial-gradient(42% 52% at 50% 40%, oklch(0.93 0.03 70 / .11), transparent 72%),
+    radial-gradient(120% 90% at 50% 120%, oklch(0.12 0.01 250 / .9), transparent 60%);
+}
+.brand-intro .enter-canvas::after { display: none; }
+.brand-intro .glow {
+  position: absolute; width: 46vmax; height: 46vmax; border-radius: 50%; filter: blur(70px); opacity: 0;
+  animation: glow-in 2400ms 300ms ease forwards, drift 22s ease-in-out infinite alternate;
+}
+.glow.g1 { left: -12vmax; top: -10vmax; background: oklch(0.72 0.15 42 / .26); }
+.glow.g2 { right: -14vmax; top: 18%; background: oklch(0.74 0.1 245 / .2); animation-duration: 2400ms, 26s; animation-delay: 600ms, -8s; }
+.glow.g3 { left: 18%; bottom: -24vmax; background: oklch(0.78 0.12 85 / .18); animation-duration: 2400ms, 30s; animation-delay: 900ms, -15s; }
+@keyframes glow-in { to { opacity: 1; } }
+@keyframes drift { from { translate: 0 0; } to { translate: 6vmax 4vmax; } }
+.brand-intro .enter-text { padding: 0 var(--gutter) 6vh; display: flex; flex-direction: column; align-items: center; }
+.brand-mark { width: clamp(110px, 16vw, 190px); height: auto; overflow: visible; margin-bottom: clamp(4px, 1.5vh, 14px); }
+.brand-mark path {
+  fill: none; stroke: var(--oxide); stroke-width: 5.5; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1; filter: drop-shadow(0 4px 14px oklch(0.72 0.15 42 / .45));
+}
+.brand-intro.revealed .brand-mark path { animation: stroke-paint 1100ms 150ms var(--ease-in-out) forwards; }
+@keyframes stroke-paint { to { stroke-dashoffset: 0; } }
+.brand-intro .enter-text h1 { font-size: clamp(64px, 13vw, 168px); line-height: .95; letter-spacing: .01em; }
+.brand-intro.revealed .enter-text h1 { animation: write-on 1300ms 700ms var(--ease-in-out) backwards; }
+.brand-intro .enter-text p { margin: 14px 0 0; font-size: clamp(20px, 2.4vw, 28px); }
+.brand-intro.revealed .enter-text p { animation: rise 700ms 1600ms var(--ease-out) backwards; }
+.brand-intro .enter-text .brand-place {
+  font-style: normal; font-size: 13px; letter-spacing: .32em; text-transform: uppercase; margin-top: 18px;
+  display: flex; align-items: center; gap: 14px;
+}
+.brand-place::before, .brand-place::after { content: ""; width: 28px; height: 1px; background: currentColor; opacity: .5; }
+.brand-place:empty { display: none; }
+.brand-intro.revealed .enter-text .brand-place { animation: rise 700ms 1900ms var(--ease-out) backwards; }
+.brand-intro .enter-cue { transition-delay: 2400ms; }
+.brand-intro.leaving .enter-canvas { transform: scale(1.08); transition: transform 420ms var(--ease-in-out); }
+@media (max-width: 420px) { .brand-intro .enter-text .brand-place { letter-spacing: .22em; font-size: 11px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-intro .glow { animation: glow-in 600ms ease forwards; }
+  .brand-intro.revealed .brand-mark path { animation-duration: 1ms; }
+  .cue-line::after { animation: none; top: 30%; }
+  .entrance.revealed .enter-text h1, .entrance.revealed .enter-text p { animation-name: vt-fade; }
+}
+
+/* Phones and tablets: a swipe in any direction moves the gallery wall, up and down too,
+   so visitors can browse down through the paintings. The ↓ button and the menu lead to the
+   sections below. Once the page has scrolled past the wall, swipes scroll the page again. */
+@media (pointer: coarse) {
+  .salon { touch-action: none; }
+  .salon.behind { touch-action: pan-y; }
+}
+
+/* "Try it on your wall", offered first: on the entrance and in the wall's bar */
+.frame-icon {
+  flex: none; display: inline-block; width: 16px; height: 13px; border: 2px solid currentColor; border-radius: 2px;
+  box-shadow: inset 0 0 0 2px oklch(0.185 0.012 250 / .0), inset 0 -5px 0 -2px currentColor; /* a tiny framed picture */
+}
+.enter-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; pointer-events: auto; }
+.enter-room {
+  appearance: none; display: inline-flex; align-items: center; gap: 10px; cursor: pointer;
+  font: inherit; color: var(--ink); background: oklch(0.185 0.012 250 / .55);
+  border: 1px solid oklch(0.93 0.012 85 / .45); border-radius: 999px; padding: 11px 24px; min-height: 44px;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  animation: rise 420ms 1300ms var(--ease-out) backwards;
+  transition: transform 160ms var(--ease-out), background-color 160ms ease, border-color 160ms ease;
+}
+.enter-room:active { transform: scale(.97); }
+.tryroom {
+  position: relative; appearance: none; flex: none; display: inline-flex; align-items: center; gap: 9px; cursor: pointer;
+  font: inherit; font-size: 15px; color: var(--ink); background: oklch(0.225 0.013 250 / .88);
+  border: 1px solid var(--oxide); border-radius: 999px; padding: 8px 16px; min-height: 44px; white-space: nowrap;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms var(--ease-out);
+}
+.tryroom:active { transform: scale(.96); }
+.tryroom .frame-icon { color: var(--oxide); }
+/* A small "new" light so first-time visitors notice it */
+.new-dot {
+  position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--oxide); box-shadow: 0 0 0 0 oklch(0.72 0.15 42 / .6);
+  animation: new-pulse 2.2s ease-out infinite;
+}
+@keyframes new-pulse { 70%, 100% { box-shadow: 0 0 0 10px oklch(0.72 0.15 42 / 0); } }
+@media (hover: hover) and (pointer: fine) {
+  .enter-room:hover { background: oklch(0.225 0.013 250 / .8); border-color: var(--ink); }
+  .tryroom:hover { background: var(--wall-3); border-color: var(--ink); }
+}
+@media (max-width: 420px) {
+  .tryroom { width: 44px; padding: 0; justify-content: center; }
+  .tryroom .label { display: none; }
+}
+
+/* Inside the feature: which painting is up, and every painting to swap in */
+.room-stage { width: min(100%, calc(52dvh * var(--r))); }
+.room-now { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: -4px 0 8px; }
+.room-now span { font-family: var(--hand); font-style: italic; font-weight: 500; font-size: 24px; font-size-adjust: .46; }
+.room-open { color: var(--ink-2); font-size: 15px; white-space: nowrap; }
+.room-open:hover { color: var(--ink); }
+.room-picker {
+  display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 10px; margin-bottom: 12px;
+  scrollbar-width: thin; overscroll-behavior-x: contain; scroll-snap-type: x proximity;
+}
+.pick {
+  flex: none; height: 64px; padding: 0; border: 0; border-radius: 3px; overflow: hidden; cursor: pointer;
+  scroll-snap-align: center; box-shadow: 0 4px 10px rgba(0, 0, 0, .4);
+  opacity: .62; transition: opacity 160ms ease, transform 160ms var(--ease-out), box-shadow 160ms ease;
+}
+.pick img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pick[aria-pressed="true"] { opacity: 1; box-shadow: 0 0 0 2px var(--oxide), 0 6px 14px rgba(0, 0, 0, .5); }
+.pick:active { transform: scale(.95); }
+@media (hover: hover) and (pointer: fine) {
+  .pick:hover { opacity: 1; transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .new-dot { animation: none; }
+  .pick, .pick:hover { transform: none; }
+}
+
+/* Phones: feel like an app, not a web page */
+button, .button, .chip, .surprise, .down, .lang, .tool, .slot, .sib { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+.slot img, .sib img, .frame img { -webkit-touch-callout: none; }
+.enquiry { overscroll-behavior: contain; max-height: calc(100dvh - 32px); overflow-y: auto; }
+.enquiry textarea { font-size: max(16px, 1em); } /* under 16px, iPhones zoom the page when typing */
+
+@media (prefers-reduced-motion: reduce) {
+  .chips-on { transition: none; }
+  .sib:hover, .sib:active { transform: none; }
+}

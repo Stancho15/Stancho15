@@ -1,0 +1,63 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>IV Art</title>
+  <meta name="description" content="IV Art: original oil and acrylic paintings and commissions by Ivelina, Stara Zagora, Bulgaria. Картини и поръчки от Ивелина.">
+  <meta name="theme-color" content="#0f1318">
+  <meta name="format-detection" content="telephone=no">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="IV Art: paintings by Ivelina">
+  <meta property="og:description" content="Original oil and acrylic paintings and commissions by Ivelina, Stara Zagora, Bulgaria.">
+  <meta property="og:locale" content="en_GB">
+  <meta property="og:locale:alternate" content="bg_BG">
+  <!-- When the site has an address, add a photo of a painting for link previews:
+       <meta property="og:image" content="https://YOUR-ADDRESS/art/low-tide.jpg"> -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f1318'/%3E%3Cpath d='M6 21c4-9 7-10 10-6s6 3 10-5' stroke='%23f18154' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=20261110b">
+</head>
+<body>
+  <!-- The opening: the IV Art brand on its own. Scroll, swipe or tap anywhere to enter the gallery. -->
+  <div id="entrance" class="entrance brand-intro" hidden>
+    <div class="enter-canvas" id="enterCanvas" aria-hidden="true"><span class="glow g1"></span><span class="glow g2"></span><span class="glow g3"></span></div>
+    <div class="enter-text">
+      <svg class="brand-mark" viewBox="0 0 120 40" aria-hidden="true"><path pathLength="1" d="M8 29c12-22 22-25 32-13s20 10 32-6 22-9 40 6"/></svg>
+      <h1 id="enterName"></h1>
+      <p id="enterMedium"></p>
+      <p class="brand-place" id="enterPlace"></p>
+    </div>
+    <div class="enter-cue" aria-hidden="true"><span class="cue-line"></span><span id="enterCue"></span></div>
+    <button id="enterBtn" class="sr-only enter-key" type="button">Enter</button>
+  </div>
+
+  <div id="app">
+    <header class="top">
+      <a class="brand" id="brand" href="#"></a>
+      <nav id="nav" aria-label="Main">
+        <a href="#" data-label="map">Gallery</a>
+        <a href="#about" data-label="about">Studio</a>
+        <a href="#commissions" data-label="commissions">Commissions</a>
+        <a href="#journal" data-label="journal">Journal</a>
+        <button class="lang" type="button"></button>
+      </nav>
+    </header>
+    <main id="main" tabindex="-1"></main>
+    <footer class="foot" id="foot"></footer>
+  </div>
+
+  <noscript><p style="padding:2rem;color:#e8e0d2">This portfolio needs JavaScript to show the paintings.</p></noscript>
+
+  <!-- Your content lives in js/content.js -->
+  <script src="js/content.js?v=20261110b"></script>
+  <script src="js/worst-case.js?v=20261110b"></script>
+  <script src="js/paint.js?v=20261110b"></script>
+  <script src="js/viewer.js?v=20261110b"></script>
+  <script src="js/wipe.js?v=20261110b"></script>
+  <script src="js/salon.js?v=20261110b"></script>
+  <script src="js/app.js?v=20261110b"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# Local editor settings, not part of the site
+.claude/
+
+# Clean painting photos without the watermark (kept on this computer only)
+.originals/
